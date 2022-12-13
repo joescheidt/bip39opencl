@@ -225,15 +225,15 @@ static void do_get_mnemonic(struct device_info &device)
   err = clBuildProgram(prog, 0, NULL, NULL, NULL, NULL);
   if(err != CL_SUCCESS)
   {
-      char *buffer = NULL;
-      size_t len = 0;
-      std::cout << "Error: Failed to build program executable! error code " << err << std::endl;
-      clGetProgramBuildInfo(prog, device.id, CL_PROGRAM_BUILD_LOG, 0, NULL, &len);
-      buffer = new char[len];
-      clGetProgramBuildInfo(prog, device.id, CL_PROGRAM_BUILD_LOG, len, buffer, NULL);
-      std::cout << buffer << std::endl;
-      delete[] buffer;
-      clCall(err);
+    char *buffer = NULL;
+    size_t len = 0;
+    std::cout << "Error: Failed to build program executable! error code " << err << std::endl;
+    clGetProgramBuildInfo(prog, device.id, CL_PROGRAM_BUILD_LOG, 0, NULL, &len);
+    buffer = new char[len];
+    clGetProgramBuildInfo(prog, device.id, CL_PROGRAM_BUILD_LOG, len, buffer, NULL);
+    std::cout << buffer << std::endl;
+    delete[] buffer;
+    clCall(err);
   }
 
   std::cout << "Done" << std::endl;
@@ -257,17 +257,32 @@ static void do_get_mnemonic(struct device_info &device)
   uint8_t res_address[20] = {0};  
   uint8_t target_mnemonic[120] = {0};
   uint8_t found_mnemonic[1] = {0};
-
+  
   int kernel_calls = 0;
-  clCall(clEnqueueReadBuffer(cmd, res_address_buff, CL_TRUE, 0, sizeof(uint8_t) * 20 , &res_address, 0, NULL, NULL));
-  clCall(clEnqueueReadBuffer(cmd, target_mnemonic_buff, CL_TRUE, 0, sizeof(uint8_t) * 120 , &target_mnemonic, 0, NULL, NULL));
-  clCall(clEnqueueReadBuffer(cmd, found_mnemonic_buff, CL_TRUE, 0, sizeof(uint8_t), &found_mnemonic, 0, NULL, NULL));
-
   std::cout << "Running..." << std::endl;
-
-  // clCall(clSetKernelArg(kernel, 0, sizeof(cl_mem), NULL));
-  clCall(clEnqueueNDRangeKernel(cmd, kernel, 1, NULL, &global, &local, 0, NULL, NULL));
-  clCall(clFinish(cmd));
+  for(*found_mnemonic == 1 )
+  {
+    clCall(clSetKernelArg(kernel, 0, sizeof(uint8_t), NULL));
+    clCall(clSetKernelArg(kernel, 1, sizeof(uint8_t), NULL));
+    clCall(clSetKernelArg(kernel, 2, sizeof(uint8_t), NULL));
+    clCall(clEnqueueReadBuffer(cmd, res_address_buff, CL_TRUE, 0, sizeof(uint8_t) * 20 , &res_address, 0, NULL, NULL));
+    clCall(clEnqueueReadBuffer(cmd, target_mnemonic_buff, CL_TRUE, 0, sizeof(uint8_t) * 120 , &target_mnemonic, 0, NULL, NULL));
+    clCall(clEnqueueReadBuffer(cmd, found_mnemonic_buff, CL_TRUE, 0, sizeof(uint8_t), &found_mnemonic, 0, NULL, NULL));
+    clCall(clEnqueueNDRangeKernel(cmd, kernel, 1, NULL, &global, &local, 0, NULL, NULL));
+    clCall(clFinish(cmd));
+    kernel_calls++;
+    uint64_t t1 = getSystemTime() - t0;
+    total_time += t1;
+    if(t1 >= 1800) 
+    {
+        std::cout << device.name.substr(0, 16) << "| "
+        << formatSeconds((unsigned int)(total_time/1000)) << " "
+        << ((kernel_calls * global) / (t1/1000)) << "/sec "
+        << std::endl;
+        t0 = getSystemTime();
+        kernel_calls = 0;
+    }
+  }
 }
 bool mnemonic_cl(struct device_info &device){
   load_kernel_source();
