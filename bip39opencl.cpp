@@ -15,6 +15,25 @@
 extern char _bip39_cl[];
 
 std::string _kernelSource;
+std::string formatSeconds(unsigned int seconds)
+{
+    char s[128] = { 0 };
+
+    unsigned int days = seconds / 86400;
+    unsigned int hours = (seconds % 86400) / 3600;
+    unsigned int minutes = (seconds % 3600) / 60;
+    unsigned int sec = seconds % 60;
+
+    if(days > 0) {
+        sprintf(s, "%d:%02d:%02d:%02d", days, hours, minutes, sec);
+    }
+    else {
+        sprintf(s, "%02d:%02d:%02d", hours, minutes, sec);
+    }
+
+
+    return std::string(s);
+}
 
 void clCall(cl_int err)
 {
@@ -260,20 +279,22 @@ static void do_get_mnemonic(struct device_info &device)
   
   int kernel_calls = 0;
   std::cout << "Running..." << std::endl;
-  for(*found_mnemonic == 1 )
+  uint64_t t0 = getSystemTime(); 
+  uint64_t total_time = 0;  
+  while (*found_mnemonic == 1)
   {
-    clCall(clSetKernelArg(kernel, 0, sizeof(uint8_t), NULL));
-    clCall(clSetKernelArg(kernel, 1, sizeof(uint8_t), NULL));
-    clCall(clSetKernelArg(kernel, 2, sizeof(uint8_t), NULL));
-    clCall(clEnqueueReadBuffer(cmd, res_address_buff, CL_TRUE, 0, sizeof(uint8_t) * 20 , &res_address, 0, NULL, NULL));
-    clCall(clEnqueueReadBuffer(cmd, target_mnemonic_buff, CL_TRUE, 0, sizeof(uint8_t) * 120 , &target_mnemonic, 0, NULL, NULL));
-    clCall(clEnqueueReadBuffer(cmd, found_mnemonic_buff, CL_TRUE, 0, sizeof(uint8_t), &found_mnemonic, 0, NULL, NULL));
-    clCall(clEnqueueNDRangeKernel(cmd, kernel, 1, NULL, &global, &local, 0, NULL, NULL));
-    clCall(clFinish(cmd));
-    kernel_calls++;
-    uint64_t t1 = getSystemTime() - t0;
-    total_time += t1;
-    if(t1 >= 1800) 
+  clCall(clSetKernelArg(kernel, 0, sizeof(uint8_t), NULL));
+  clCall(clSetKernelArg(kernel, 1, sizeof(uint8_t), NULL));
+  clCall(clSetKernelArg(kernel, 2, sizeof(uint8_t), NULL));
+  clCall(clEnqueueReadBuffer(cmd, res_address_buff, CL_TRUE, 0, sizeof(uint8_t) * 20 , &res_address, 0, NULL, NULL));
+  clCall(clEnqueueReadBuffer(cmd, target_mnemonic_buff, CL_TRUE, 0, sizeof(uint8_t) * 120 , &target_mnemonic, 0, NULL, NULL));
+  clCall(clEnqueueReadBuffer(cmd, found_mnemonic_buff, CL_TRUE, 0, sizeof(uint8_t), &found_mnemonic, 0, NULL, NULL));
+  clCall(clEnqueueNDRangeKernel(cmd, kernel, 1, NULL, &global, &local, 0, NULL, NULL));
+  clCall(clFinish(cmd));
+  kernel_calls++;
+  uint64_t t1 = getSystemTime() - t0;
+  total_time += t1;
+  if(t1 >= 1800) 
     {
         std::cout << device.name.substr(0, 16) << "| "
         << formatSeconds((unsigned int)(total_time/1000)) << " "
